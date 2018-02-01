@@ -245,25 +245,6 @@
           }],  # OS=="win"
         ],
       }],
-      ['OS=="linux" and _toolset=="target" and _target_name in ["dump_syms", "node"]', {
-        'conditions': [
-          ['libchromiumcontent_component==0', {
-            'libraries': [
-              '<(libchromiumcontent_dir)/libc++.a',
-            ],
-            'ldflags': [
-              '-lpthread',
-            ],
-          }, {
-            'libraries': [
-              '<(libchromiumcontent_dir)/libc++.so',
-            ],
-            'ldflags': [
-              '-Wl,-rpath=\$$ORIGIN',
-            ],
-          }],
-        ],
-      }]
     ],
     'msvs_cygwin_shell': 0, # Strangely setting it to 1 would make building under cygwin fail.
     'msvs_disabled_warnings': [

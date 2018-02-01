@@ -132,12 +132,6 @@
           ['OS=="linux" and _toolset=="target"', {
             'cflags_cc': [
               '-std=gnu++14',
-              '-nostdinc++',
-              '-isystem<(libchromiumcontent_src_dir)/buildtools/third_party/libc++/trunk/include',
-              '-isystem<(libchromiumcontent_src_dir)/buildtools/third_party/libc++abi/trunk/include',
-            ],
-            'ldflags': [
-              '-nostdlib++',
             ],
           }],
           ['OS=="linux" and _toolset=="host"', {
