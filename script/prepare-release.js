@@ -6,7 +6,7 @@ const assert = require('assert')
 const ciReleaseBuild = require('./ci-release-build')
 const { execSync } = require('child_process')
 const fail = '\u2717'.red
-const { GitProcess, GitError } = require('dugite')
+const { GitProcess } = require('dugite')
 const GitHub = require('github')
 const pass = '\u2713'.green
 const path = require('path')
@@ -27,24 +27,6 @@ if (!versionType && !args.notesOnly) {
 const github = new GitHub()
 const gitDir = path.resolve(__dirname, '..')
 github.authenticate({type: 'token', token: process.env.ELECTRON_GITHUB_TOKEN})
-
-async function createReleaseBranch () {
-  console.log(`Creating release branch.`)
-  let checkoutDetails = await GitProcess.exec([ 'checkout', '-b', 'release' ], gitDir)
-  if (checkoutDetails.exitCode === 0) {
-    console.log(`${pass} Successfully created the release branch.`)
-  } else {
-    const error = GitProcess.parseError(checkoutDetails.stderr)
-    if (error === GitError.BranchAlreadyExists) {
-      console.log(`${fail} Release branch already exists, aborting prepare ` +
-        `release process.`)
-    } else {
-      console.log(`${fail} Error creating release branch: ` +
-        `${checkoutDetails.stderr}`)
-    }
-    process.exit(1)
-  }
-}
 
 function getNewVersion (dryRun) {
   console.log(`Bumping for new "${versionType}" version.`)
@@ -98,7 +80,7 @@ async function getReleaseNotes (currentBranch) {
   console.log(`Checking for commits from ${pkg.version} to ${currentBranch}`)
   let commitComparison = await github.repos.compareCommits(githubOpts)
     .catch(err => {
-      console.log(`{$fail} Error checking for commits from ${pkg.version} to ` +
+      console.log(`${fail} Error checking for commits from ${pkg.version} to ` +
         `${currentBranch}`, err)
       process.exit(1)
     })
@@ -116,6 +98,7 @@ async function getReleaseNotes (currentBranch) {
 async function createRelease (branchToTarget, isBeta) {
   let releaseNotes = await getReleaseNotes(branchToTarget)
   let newVersion = getNewVersion()
+  await tagRelease(newVersion)
   const githubOpts = {
     owner: 'electron',
     repo: 'electron'
@@ -153,15 +136,16 @@ async function createRelease (branchToTarget, isBeta) {
       process.exit(1)
     })
   console.log(`${pass} Draft release for ${newVersion} has been created.`)
+  return newVersion
 }
 
-async function pushRelease () {
-  let pushDetails = await GitProcess.exec(['push', 'origin', 'HEAD'], gitDir)
+async function pushRelease (version) {
+  let pushDetails = await GitProcess.exec(['push', 'origin', version], gitDir)
   if (pushDetails.exitCode === 0) {
-    console.log(`${pass} Successfully pushed the release branch.  Wait for ` +
+    console.log(`${pass} Successfully pushed ${version}.  Wait for ` +
       `release builds to finish before running "npm run release".`)
   } else {
-    console.log(`${fail} Error pushing the release branch: ` +
+    console.log(`${fail} Error pushing ${version}: ` +
         `${pushDetails.stderr}`)
     process.exit(1)
   }
@@ -173,8 +157,20 @@ async function runReleaseBuilds () {
   })
 }
 
+async function tagRelease (version) {
+  console.log(`Tagging release ${version}.`)
+  let checkoutDetails = await GitProcess.exec([ 'tag', version ], gitDir)
+  if (checkoutDetails.exitCode === 0) {
+    console.log(`${pass} Successfully tagged ${version}.`)
+  } else {
+    console.log(`${fail} Error tagging ${version}: ` +
+      `${checkoutDetails.stderr}`)
+    process.exit(1)
+  }
+}
+
 async function verifyNewVersion () {
-  let newVersion = await getNewVersion(true)
+  let newVersion = getNewVersion(true)
   let response = await promptForVersion(newVersion)
   if (response.match(/^y/i)) {
     console.log(`${pass} Starting release of ${newVersion}`)
@@ -204,9 +200,8 @@ async function prepareRelease (isBeta, notesOnly) {
     console.log(`Draft release notes are: ${releaseNotes}`)
   } else {
     await verifyNewVersion()
-    await createReleaseBranch()
-    await createRelease(currentBranch, isBeta)
-    await pushRelease()
+    let newVersion = await createRelease(currentBranch, isBeta)
+    await pushRelease(newVersion)
     await runReleaseBuilds()
   }
 }
