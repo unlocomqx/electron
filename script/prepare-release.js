@@ -202,7 +202,7 @@ async function prepareRelease (isBeta, notesOnly) {
     await verifyNewVersion()
     let newVersion = await createRelease(currentBranch, isBeta)
     await pushRelease(newVersion)
-    await runReleaseBuilds()
+    // await runReleaseBuilds()
   }
 }
 
